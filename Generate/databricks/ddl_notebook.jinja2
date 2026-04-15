@@ -1,0 +1,173 @@
+{%- import 'column_definition.jinja2' as column_definition -%}
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # DDL for {{ data.zone_name }}.{{ data.full_table_name }}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Initialize base settings
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Imports
+
+# COMMAND ----------
+
+# ruff: disable[F401]
+from pyspark.sql.types import (
+{%- for import_name in data.imports %}
+    {{ import_name }},
+{%- endfor %}
+)
+
+# ruff: enable[F401]
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Get variable values
+
+# COMMAND ----------
+
+# MAGIC %run ../../../../../../utils/MigrationFramework
+
+# COMMAND ----------
+
+dbutils.widgets.text("env", "dev", "Environment")
+dbutils.widgets.text("catalog_name", "datam8_campus_dev_fka", "Catalog Name")
+dbutils.widgets.text("owner", "datam8_sample_dev_owner", "Owner")
+dbutils.widgets.text("job_run_id", "", "Job Run ID")
+
+# COMMAND ----------
+
+# Retrieve a job-level parameter (will use default if it doesn't exist)
+env = dbutils.widgets.get("env")
+catalog_name = dbutils.widgets.get("catalog_name")
+owner = dbutils.widgets.get("owner")
+job_run_id = dbutils.widgets.get("job_run_id")
+
+zone = "{{ data.zone.entity.name }}"
+data_product = "{{ data.data_product }}"
+data_module = "{{ data.data_module }}"
+table_name = "{{ data.entity.name }}"
+
+# COMMAND ----------
+
+catalog = Catalog(catalog_name)
+catalog.schema = zone
+catalog.set_active()
+
+table_name = f"`{catalog_name}`.`{zone}`.`{table_name}`"
+table_comment = "{{ data.table_comment }}"
+
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Create or migrate table
+
+# COMMAND ----------
+# DBTITLE 1,Build & execute SQL Statement
+
+create_sql = f"""
+CREATE TABLE { table_name } (
+{%- for column in data.columns %}
+{{ "," if not loop.first else " " }}   {{ column_definition.sql_field(column) }}
+{%- endfor %}
+{%- if data.primary_key_attributes | length > 0 %}
+,   {{ column_definition.constraint_primary_key(data.full_table_name, data.primary_key_attributes) }}
+{%- endif %}
+{%- for fk in data.foreign_keys %}
+,   {{ column_definition.constraint_foreign_key(fk) }}
+{%- endfor %}
+)
+USING
+    DELTA
+{%- if data.partitions | length > 0 %}
+CLUSTER BY
+    {%- for partition in data.partitions %}
+{{ "," if not loop.first else " " }}   `{{ partition }}`
+    {%- endfor %}
+{%- endif %}
+{%- if data.table_properties | length > 0 %}
+TBLPROPERTIES (
+    {%- for key, value in data.table_properties.items() %}
+{{ "," if not loop.first else " " }}   '{{ key }}'='{{ value }}'
+    {%- endfor %}
+)
+{%- endif %}
+"""
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Define table schema
+
+# COMMAND ----------
+# DBTITLE 1,Define schema
+
+schema = StructType([
+{%- for column in data.columns %}
+    {{ column_definition.struct_field(column) }}
+{%- endfor %}
+])
+
+# COMMAND ----------
+# DBTITLE 1,Define partitions
+
+partitions = [
+{%- for partition in data.partitions %}
+    "{{ partition }}",
+{%- endfor %}
+]
+
+# COMMAND ----------
+# DBTITLE 1,Define refactored columns
+
+refactored_columns = {
+{%- for refactors in data.refactored_columns %}
+    "{{refactors.name}}": [ {%- for rn in refactors.refactorNames -%}"{{rn}}",{%- endfor %} ],
+{%- endfor %}
+}
+
+# COMMAND ----------
+# DBTITLE 1,Call migrate_schema method
+
+table_instance = Table(table_name, catalog)
+
+try:
+    result = table_instance.migrate_schema(
+        ddl=create_sql,
+        schema=schema,
+        refactored_columns=refactored_columns,
+        new_partitions=partitions,
+    )
+
+    print(f"Result: {result}")
+except Exception as e:
+    print(f"Migration failed: {e}")
+
+table_instance.owner = owner
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Tags
+
+# COMMAND ----------
+# DBTITLE 1,Set table & column tags
+
+table_instance.set_table_tags({ {%- for prop, value in data.table_properties.items() %}
+    "{{ prop }}": "{{ value }}",
+{%- endfor %}
+})
+
+{%- for name, tags in data.column_tags %}
+table_instance.set_column_tags("{{ name }}", {
+    {%- for prop, value in tags.items() -%}
+        "{{ prop }}": "{{ value }}",
+    {%- endfor -%} })
+{%- endfor %}
+

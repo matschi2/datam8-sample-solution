@@ -30,17 +30,6 @@
             "name": "ExternalStorage",
             "displayName": "datam80adl",
             "type": "LakeSource"
-        },
-        {
-            "extendedProperties": {
-                "host": "datam80ora.westeurope.cloudapp.azure.com",
-                "port": 1521,
-                "connectionType": "Service",
-                "connection": "datam8test",
-                "user": "datam8"
-            },
-            "name": "OracleDev",
-            "type": "OracleDataSource"
         }
     ]
 }

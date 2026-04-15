@@ -4,11 +4,11 @@ bundle:
   name: automation_sample_solution
 
 include:
-  - generated/schemas/*.yml
-  - generated/clusters/*.yml
-  - generated/jobs/*.yml  # top-level
-  - generated/jobs/*/*.yml  # layer-level
-  - generated/jobs/*/*/*/*.yml  # product/module-level
+  - Output/databricks/schemas/*.yml
+  - Output/databricks/clusters/*.yml
+  - Output/databricks/jobs/*.yml  # top-level
+  - Output/databricks/jobs/*/*.yml  # layer-level
+  - Output/databricks/jobs/*/*/*/*.yml  # product/module-level
 
 sync:
   include:
@@ -41,7 +41,7 @@ variables:
     description: Override the default schedule status
     default: PAUSED
   permission_group_name:
-      description: Group name for generell permissions on cluster and jobs
+      description: Group name for general permissions on cluster and jobs
       default: teilnehmer
 
 targets:

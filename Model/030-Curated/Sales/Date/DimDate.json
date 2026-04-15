@@ -28,8 +28,9 @@
       "description": "Calendar date ID",
       "attributeType": "ID",
       "dataType": {
-        "type": "integer",
-        "nullable": false
+        "type": "double",
+        "nullable": false,
+        "precision": 5
       },
       "isBusinessKey": true,
       "dateModified": "2025-07-23T01:01:01Z",
@@ -54,7 +55,8 @@
       "attributeType": "ID",
       "dataType": {
         "type": "string",
-        "nullable": false
+        "nullable": false,
+        "charLen": 255
       },
       "dateModified": "2025-07-23T01:01:01Z",
       "dateAdded": "2025-01-01T01:01:01Z"
